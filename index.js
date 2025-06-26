@@ -1,11 +1,13 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const Product = require("./models/Product");
+const authRoutes = require("./routes/auth"); // 🔄 QO‘SHILDI
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use("/api", authRoutes); // 🔌 QO‘SHILDI
 
 // MongoDB ulanish
 mongoose
@@ -15,13 +17,12 @@ mongoose
   .then(() => console.log("MongoDBga ulanish muvaffaqiyatli!"))
   .catch((err) => console.error("MongoDBga ulanishda xatolik:", err));
 
-// GET barcha productlar
+// === CRUD PRODUCT API ===
 app.get("/products", async (req, res) => {
   const products = await Product.find();
   res.json(products);
 });
 
-// GET bitta product
 app.get("/products/:id", async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -32,7 +33,6 @@ app.get("/products/:id", async (req, res) => {
   }
 });
 
-// POST yangi product yaratish
 app.post("/products", async (req, res) => {
   try {
     const { name, description, price } = req.body;
@@ -44,7 +44,6 @@ app.post("/products", async (req, res) => {
   }
 });
 
-// PATCH (update)
 app.patch("/products/:id", async (req, res) => {
   try {
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
@@ -57,7 +56,6 @@ app.patch("/products/:id", async (req, res) => {
   }
 });
 
-// DELETE
 app.delete("/products/:id", async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
