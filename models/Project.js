@@ -5,7 +5,7 @@ const ProjectSchema = new mongoose.Schema(
     title: { type: String, required: true },
     desc: String,
     price: Number,
-    startDate: Date,
+    startDate: { type: Date }, // 👉 BU QATORNI QO‘SHING
     endDate: Date,
     category: String,
     link: String,
