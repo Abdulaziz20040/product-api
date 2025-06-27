@@ -25,7 +25,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// 🆕 REGISTER (username takrorlansa ham mayli)
+// 🆕 REGISTER
 router.post("/register", async (req, res) => {
   const { username, password, role } = req.body;
 
@@ -47,11 +47,58 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// 📄 Barcha foydalanuvchilarni olish (parolsiz)
+// 📄 HAMMA FOYDALANUVCHILAR
 router.get("/users", async (req, res) => {
   try {
-    const users = await User.find().select("-password"); // parolni yashirish
+    const users = await User.find().select("-password");
     res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err });
+  }
+});
+
+// 🔍 BIR FOYDALANUVCHINI OLIB KELISH
+router.get("/users/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
+    }
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err });
+  }
+});
+
+// ✏️ FOYDALANUVCHINI TAHRIRLASH
+router.put("/users/:id", async (req, res) => {
+  try {
+    const { username, password, role } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { username, password, role },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
+    }
+
+    res.status(200).json({ message: "Tahrirlandi", user: updatedUser });
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err });
+  }
+});
+
+// ❌ FOYDALANUVCHINI O‘CHIRISH
+router.delete("/users/:id", async (req, res) => {
+  try {
+    const deleted = await User.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
+    }
+    res.status(200).json({ message: "O‘chirildi!" });
   } catch (err) {
     res.status(500).json({ message: "Xatolik", error: err });
   }
