@@ -1,8 +1,10 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const cors = require("cors"); // ✅ CORS import qilingan
 
+// ROUTELAR
 const authRoutes = require("./routes/auth");
-const projectRoutes = require("./routes/projects"); // ✅ QO‘SHILDI
+const projectRoutes = require("./routes/projects");
 const clientRoutes = require("./routes/clients");
 const orderRoutes = require("./routes/orders");
 const employeeRoutes = require("./routes/employees");
@@ -12,18 +14,22 @@ const partnerRoutes = require("./routes/partners");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ✅ Barcha domenlarga ruxsat beruvchi CORS middleware
+app.use(cors());
+
+// JSON request'larni parse qilish
 app.use(express.json());
 
 // ROUTELARNI ULASH
-app.use("/auth", authRoutes); // POST /api/auth/login | /register
+app.use("/auth", authRoutes);
 app.use("/projects", projectRoutes);
-app.use("/clients", clientRoutes); // ➕ qo‘shing
-app.use("/orders", orderRoutes); // http://localhost:3000/orders
+app.use("/clients", clientRoutes);
+app.use("/orders", orderRoutes);
 app.use("/employees", employeeRoutes);
-app.use("/history", historyRoutes); // ➕ Tarix routeni ulash
+app.use("/history", historyRoutes);
 app.use("/partners", partnerRoutes);
 
-// MongoDB ULANISH
+// ✅ MongoDBga ulanish
 mongoose
   .connect(
     "mongodb+srv://Abdulaziz:8765432112345@cluster0.h5cubol.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
@@ -31,7 +37,7 @@ mongoose
   .then(() => console.log("✅ MongoDBga ulanish muvaffaqiyatli!"))
   .catch((err) => console.error("❌ MongoDBga ulanishda xatolik:", err));
 
-// SERVER TUSHURISH
+// ✅ Server ishga tushirish
 app.listen(PORT, () => {
   console.log(`🚀 Server ishga tushdi: http://localhost:${PORT}`);
 });
