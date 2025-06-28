@@ -10,6 +10,7 @@ const orderRoutes = require("./routes/orders");
 const employeeRoutes = require("./routes/employees");
 const historyRoutes = require("./routes/history");
 const partnerRoutes = require("./routes/partners");
+const sliderRoutes = require("./routes/sliderRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,7 @@ app.use("/orders", orderRoutes);
 app.use("/employees", employeeRoutes);
 app.use("/history", historyRoutes);
 app.use("/partners", partnerRoutes);
+app.use("/sliders", sliderRoutes);
 
 // ✅ MongoDBga ulanish
 mongoose
