@@ -1,9 +1,6 @@
-// 🔐 Admin Panel uchun to‘liq Auth tizimi (Node.js + JWT)
-
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 require("dotenv").config();
 
@@ -32,9 +29,9 @@ function isAdmin(req, res, next) {
   next();
 }
 
-// ✅ 1. Register (so‘rov yuborish)
+// ✅ 1. Hodimni ro'yxatdan o'tkazish
 router.post("/register", async (req, res) => {
-  const { name, category, desc, telegram, phone, github, technology } =
+  const { name, category, desc, telegram, phone, github, technology, img } =
     req.body;
   try {
     const newUser = new User({
@@ -45,6 +42,7 @@ router.post("/register", async (req, res) => {
       phone,
       github,
       technology,
+      img,
       status: "kutilmoqda",
       startDate: new Date(),
       role: "employee",
@@ -63,12 +61,10 @@ router.post("/login", async (req, res) => {
   const { telegram, phone } = req.body;
   try {
     const user = await User.findOne({ telegram, phone });
-    if (!user) {
+    if (!user)
       return res.status(401).json({ message: "Login maʼlumotlari noto‘g‘ri" });
-    }
-    if (user.status !== "tasdiqlangan") {
+    if (user.status !== "tasdiqlangan")
       return res.status(403).json({ message: "Hali tasdiqlanmagan!" });
-    }
 
     const accessToken = jwt.sign(
       { id: user._id, role: user.role },
@@ -90,6 +86,7 @@ router.post("/login", async (req, res) => {
         name: user.name,
         telegram: user.telegram,
         role: user.role,
+        img: user.img || null,
       },
     });
   } catch (err) {
@@ -97,7 +94,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// ✅ 3. Kutilayotgan foydalanuvchilar (admin)
+// ✅ 3. Kutilayotganlar
 router.get("/pending", verifyToken, isAdmin, async (req, res) => {
   try {
     const users = await User.find({ status: "kutilmoqda" }).select("-password");
@@ -123,7 +120,7 @@ router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ✅ 5. Tasdiqlangan foydalanuvchilar
+// ✅ 5. Tasdiqlanganlar
 router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
   try {
     const users = await User.find({ status: "tasdiqlangan" }).select(
@@ -135,7 +132,32 @@ router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// 🔧 Faqat bir marta ishlatiladigan Founder yaratish route (test purpose)
+// ✅ 6. Foydalanuvchini yangilash (faqat founder/super_admin)
+router.put("/update/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    if (!updated)
+      return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
+    res.status(200).json({ message: "Yangilandi", user: updated });
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err });
+  }
+});
+
+// ✅ 7. Bekor qilish
+router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const deleted = await User.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "So‘rov topilmadi" });
+    res.status(200).json({ message: "So‘rov bekor qilindi" });
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err });
+  }
+});
+
+// ✅ 8. Founder ni bir marta yaratish (test maqsad)
 router.post("/seedFounder", async (req, res) => {
   try {
     const isExists = await User.findOne({ telegram: "@founder" });
@@ -151,6 +173,7 @@ router.post("/seedFounder", async (req, res) => {
       category: "Fullstack",
       desc: "Asosiy tizim boshqaruvchisi",
       github: "",
+      img: "https://example.com/founder.jpg",
       technology: ["Node.js", "React"],
       startDate: new Date(),
     });
@@ -162,25 +185,4 @@ router.post("/seedFounder", async (req, res) => {
   }
 });
 
-// ✅ 6. Bekor qilish (admin rad etadi)
-router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const deleted = await User.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "So‘rov topilmadi" });
-    res.status(200).json({ message: "So‘rov bekor qilindi" });
-  } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err });
-  }
-});
-
 module.exports = router;
-
-/*
-Frontend URL:
-✅ POST /auth/register — So‘rov yuborish (kutilmoqda)
-✅ POST /auth/login — Login qilish
-✅ GET /auth/pending — Admin uchun kutilayotganlar
-✅ PUT /auth/confirm/:id — Admin tasdiqlaydi
-✅ DELETE /auth/reject/:id — Admin rad etadi
-✅ GET /auth/confirmed — Tasdiqlanganlar
-*/
