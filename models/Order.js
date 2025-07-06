@@ -19,7 +19,7 @@ const OrderSchema = new mongoose.Schema(
     members: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User", // yoki "Employee", agar hodimlar shu modelda
+        ref: "Employee", // ✅ to‘g‘ri model nomi
       },
     ],
   },
