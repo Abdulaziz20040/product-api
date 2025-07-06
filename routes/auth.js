@@ -143,9 +143,9 @@ router.post("/seedFounder", async (req, res) => {
       return res.status(400).json({ message: "Founder allaqachon mavjud" });
 
     const newUser = new User({
-      name: "Asosiy Founder",
+      name: "Abdulaziz",
       telegram: "@founder",
-      phone: "+998 91 000 00 00",
+      phone: "+998 77 014 50 47",
       role: "founder",
       status: "tasdiqlangan",
       category: "Fullstack",
