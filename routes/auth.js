@@ -219,4 +219,20 @@ router.post("/seedFounder", async (req, res) => {
   }
 });
 
+// ✅ Founder'ni yangilash (faqat founder o‘zi yoki adminlar qilishi mumkin)
+router.put("/update-founder", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const updated = await User.findOneAndUpdate(
+      { username: "founder" },
+      req.body,
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Founder topilmadi" });
+
+    res.status(200).json({ message: "Founder yangilandi", user: updated });
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err.message });
+  }
+});
+
 module.exports = router;
