@@ -3,7 +3,7 @@ const router = express.Router();
 const Employee = require("../models/Employee");
 const Order = require("../models/Order");
 
-// 🔎 1. Barcha hodimlar + loyihalari
+// 🔍 Barcha hodimlar + loyihalari
 router.get("/", async (req, res) => {
   try {
     const employees = await Employee.find().populate(
@@ -16,7 +16,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// 🔎 2. Bitta hodim
+// 🔍 Bitta hodim
 router.get("/:id", async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id).populate(
@@ -29,7 +29,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// ➕ 3. Yangi hodim qo‘shish
+// ➕ Yangi hodim qo‘shish
 router.post("/", async (req, res) => {
   try {
     const {
@@ -39,6 +39,7 @@ router.post("/", async (req, res) => {
       telegram,
       phone,
       github,
+      img, // ✅ qabul qilish
       technology,
       status,
       projects,
@@ -51,6 +52,7 @@ router.post("/", async (req, res) => {
       telegram,
       phone,
       github,
+      img, // ✅ saqlash
       technology,
       status,
       projects,
@@ -63,7 +65,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ✏️ 4. Hodimni yangilash
+// ✏️ Hodimni yangilash
 router.patch("/:id", async (req, res) => {
   try {
     const updated = await Employee.findByIdAndUpdate(req.params.id, req.body, {
@@ -76,7 +78,7 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
-// ❌ 5. Hodimni o‘chirish
+// ❌ Hodimni o‘chirish
 router.delete("/:id", async (req, res) => {
   try {
     const deleted = await Employee.findByIdAndDelete(req.params.id);

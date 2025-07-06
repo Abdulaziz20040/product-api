@@ -7,16 +7,17 @@ const EmployeeSchema = new mongoose.Schema({
   telegram: String,
   phone: String,
   github: String,
+  img: String, // ✅ yangi rasm maydoni (URL yoki base64 bo'lishi mumkin)
   technology: [String],
   status: {
     type: String,
-    enum: ["band", "bo‘sh"], // project olgan yoki yo‘q
+    enum: ["band", "bo‘sh"], // ✅ faqat 2 holat
     default: "bo‘sh",
   },
   projects: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Order", // Zakazlar modeli
+      ref: "Order", // ✅ Order modeli bilan bog‘lanadi
     },
   ],
 });
