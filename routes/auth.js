@@ -1,62 +1,52 @@
-// 🔐 JWT bilan login/register backend (access va refresh token bilan)
+// 🔐 Admin Panel uchun to‘liq Auth tizimi (Node.js + JWT)
 
 const express = require("express");
 const router = express.Router();
-const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const User = require("../models/User");
 require("dotenv").config();
 
-// JWT funksiyalar
-const createAccessToken = (user) => {
-  return jwt.sign(
-    { id: user._id, role: user.role },
-    process.env.ACCESS_SECRET,
-    { expiresIn: "15m" }
-  );
-};
-
-const createRefreshToken = (user) => {
-  return jwt.sign({ id: user._id }, process.env.REFRESH_SECRET, {
-    expiresIn: "7d",
-  });
-};
-
-// 🆕 RO‘YXATDAN O‘TISH (employee) => /auth/register
-router.post("/register", async (req, res) => {
-  const {
-    username,
-    password,
-    name,
-    phone,
-    telegram,
-    github,
-    desc,
-    category,
-    technology,
-  } = req.body;
-
-  if (!username || !password || !name || !category || !technology) {
-    return res
-      .status(400)
-      .json({ message: "Majburiy maydonlar to‘ldirilmagan!" });
+// 🔐 Middleware: Token tekshiruv
+function verifyToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Token yuborilmadi" });
   }
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res
+      .status(403)
+      .json({ message: "Token noto‘g‘ri yoki muddati tugagan" });
+  }
+}
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+function isAdmin(req, res, next) {
+  if (req.user.role !== "super_admin" && req.user.role !== "founder") {
+    return res.status(403).json({ message: "Ruxsat yo‘q" });
+  }
+  next();
+}
 
+// ✅ 1. Register (so‘rov yuborish)
+router.post("/register", async (req, res) => {
+  const { name, category, desc, telegram, phone, github, technology } =
+    req.body;
   try {
     const newUser = new User({
-      username,
-      password: hashedPassword,
       name,
-      phone,
-      telegram,
-      github,
-      desc,
       category,
+      desc,
+      telegram,
+      phone,
+      github,
       technology,
-      startDate: new Date().toISOString(),
       status: "kutilmoqda",
+      startDate: new Date(),
       role: "employee",
     });
     await newUser.save();
@@ -64,61 +54,106 @@ router.post("/register", async (req, res) => {
       .status(201)
       .json({ message: "So‘rov yuborildi! Admin tasdiqlashi kutilmoqda." });
   } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err });
+    res.status(500).json({ message: "Xatolik yuz berdi", error: err });
   }
 });
 
-// 🔐 LOGIN => /auth/login
+// ✅ 2. Login
 router.post("/login", async (req, res) => {
-  const { username, password } = req.body;
+  const { telegram, phone } = req.body;
   try {
-    const user = await User.findOne({ username });
-    if (!user)
-      return res.status(401).json({ message: "Foydalanuvchi topilmadi" });
-
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ message: "Parol noto‘g‘ri" });
-
+    const user = await User.findOne({ telegram, phone });
+    if (!user) {
+      return res.status(401).json({ message: "Login maʼlumotlari noto‘g‘ri" });
+    }
     if (user.status !== "tasdiqlangan") {
-      return res.status(403).json({ message: "Hisob hali tasdiqlanmagan!" });
+      return res.status(403).json({ message: "Hali tasdiqlanmagan!" });
     }
 
-    const accessToken = createAccessToken(user);
-    const refreshToken = createRefreshToken(user);
+    const accessToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.ACCESS_SECRET,
+      { expiresIn: "15m" }
+    );
+    const refreshToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.status(200).json({
-      message: "Muvaffaqiyatli login!",
+      message: "Muvaffaqiyatli login",
       accessToken,
       refreshToken,
       user: {
         _id: user._id,
-        username: user.username,
+        name: user.name,
+        telegram: user.telegram,
         role: user.role,
       },
     });
+  } catch (err) {
+    res.status(500).json({ message: "Server xatosi", error: err });
+  }
+});
+
+// ✅ 3. Kutilayotgan foydalanuvchilar (admin)
+router.get("/pending", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const users = await User.find({ status: "kutilmoqda" }).select("-password");
+    res.status(200).json(users);
   } catch (err) {
     res.status(500).json({ message: "Xatolik", error: err });
   }
 });
 
-// ♻️ ACCESS TOKEN YANGILASH => /auth/refresh
-router.post("/refresh", async (req, res) => {
-  const { token } = req.body;
-  if (!token) return res.status(401).json({ message: "Token yo‘q" });
-
+// ✅ 4. Tasdiqlash
+router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.REFRESH_SECRET);
-    const user = await User.findById(decoded.id);
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { status: "tasdiqlangan" },
+      { new: true }
+    );
     if (!user)
       return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
-
-    const accessToken = createAccessToken(user);
-    res.status(200).json({ accessToken });
+    res.status(200).json({ message: "Tasdiqlandi", user });
   } catch (err) {
-    res
-      .status(403)
-      .json({ message: "Refresh token noto‘g‘ri yoki muddati o‘tgan" });
+    res.status(500).json({ message: "Xatolik", error: err });
+  }
+});
+
+// ✅ 5. Tasdiqlangan foydalanuvchilar
+router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const users = await User.find({ status: "tasdiqlangan" }).select(
+      "-password"
+    );
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err });
+  }
+});
+
+// ✅ 6. Bekor qilish (admin rad etadi)
+router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const deleted = await User.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "So‘rov topilmadi" });
+    res.status(200).json({ message: "So‘rov bekor qilindi" });
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err });
   }
 });
 
 module.exports = router;
+
+/*
+Frontend URL:
+✅ POST /auth/register — So‘rov yuborish (kutilmoqda)
+✅ POST /auth/login — Login qilish
+✅ GET /auth/pending — Admin uchun kutilayotganlar
+✅ PUT /auth/confirm/:id — Admin tasdiqlaydi
+✅ DELETE /auth/reject/:id — Admin rad etadi
+✅ GET /auth/confirmed — Tasdiqlanganlar
+*/
