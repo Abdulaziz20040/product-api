@@ -99,7 +99,7 @@ router.post("/login", async (req, res) => {
     const accessToken = jwt.sign(
       { id: user._id, role: user.role },
       process.env.ACCESS_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "1d" } // ⬅️ 1 kunlik access token
     );
 
     const refreshToken = jwt.sign(
