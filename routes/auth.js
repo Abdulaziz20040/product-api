@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 require("dotenv").config();
 
-// 🔐 Middleware: Token tekshiruv
+// Middleware
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -29,10 +29,20 @@ function isAdmin(req, res, next) {
   next();
 }
 
-// ✅ 1. Hodimni ro'yxatdan o'tkazish
+// 🟢 1. Ro'yxatdan o'tish
 router.post("/register", async (req, res) => {
-  const { name, category, desc, telegram, phone, github, technology, img } =
-    req.body;
+  const {
+    name,
+    category,
+    desc,
+    telegram,
+    phone,
+    github,
+    technology,
+    img,
+    jins,
+  } = req.body;
+
   try {
     const newUser = new User({
       name,
@@ -43,26 +53,31 @@ router.post("/register", async (req, res) => {
       github,
       technology,
       img,
+      jins,
       status: "kutilmoqda",
       startDate: new Date(),
       role: "employee",
     });
+
     await newUser.save();
     res
       .status(201)
       .json({ message: "So‘rov yuborildi! Admin tasdiqlashi kutilmoqda." });
   } catch (err) {
+    console.error("❌ Backendda xatolik:", err.message);
     res.status(500).json({ message: "Xatolik yuz berdi", error: err });
   }
 });
 
-// ✅ 2. Login
+// 🟢 2. Login
 router.post("/login", async (req, res) => {
   const { telegram, phone } = req.body;
+
   try {
     const user = await User.findOne({ telegram, phone });
+
     if (!user)
-      return res.status(401).json({ message: "Login maʼlumotlari noto‘g‘ri" });
+      return res.status(401).json({ message: "Login ma'lumotlari noto‘g‘ri" });
     if (user.status !== "tasdiqlangan")
       return res.status(403).json({ message: "Hali tasdiqlanmagan!" });
 
@@ -87,6 +102,7 @@ router.post("/login", async (req, res) => {
         telegram: user.telegram,
         role: user.role,
         img: user.img || null,
+        jins: user.jins,
       },
     });
   } catch (err) {
@@ -94,17 +110,17 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// ✅ 3. Kutilayotganlar
+// 🟢 3. Kutilayotganlar
 router.get("/pending", verifyToken, isAdmin, async (req, res) => {
   try {
-    const users = await User.find({ status: "kutilmoqda" }).select("-password");
+    const users = await User.find({ status: "kutilmoqda" });
     res.status(200).json(users);
   } catch (err) {
     res.status(500).json({ message: "Xatolik", error: err });
   }
 });
 
-// ✅ 4. Tasdiqlash
+// 🟢 4. Tasdiqlash
 router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
@@ -120,19 +136,17 @@ router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ✅ 5. Tasdiqlanganlar
+// 🟢 5. Tasdiqlanganlar
 router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
   try {
-    const users = await User.find({ status: "tasdiqlangan" }).select(
-      "-password"
-    );
+    const users = await User.find({ status: "tasdiqlangan" });
     res.status(200).json(users);
   } catch (err) {
     res.status(500).json({ message: "Xatolik", error: err });
   }
 });
 
-// ✅ 6. Foydalanuvchini yangilash (faqat founder/super_admin)
+// 🟢 6. Yangilash
 router.put("/update/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
@@ -146,7 +160,7 @@ router.put("/update/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ✅ 7. Bekor qilish
+// 🟢 7. Bekor qilish
 router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const deleted = await User.findByIdAndDelete(req.params.id);
@@ -157,7 +171,7 @@ router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ✅ 8. Founder ni bir marta yaratish (test maqsad)
+// 🟢 8. Founder yaratish (bir martalik)
 router.post("/seedFounder", async (req, res) => {
   try {
     const isExists = await User.findOne({ telegram: "@founder" });
@@ -174,6 +188,7 @@ router.post("/seedFounder", async (req, res) => {
       desc: "Asosiy tizim boshqaruvchisi",
       github: "",
       img: "https://example.com/founder.jpg",
+      jins: "Erkak",
       technology: ["Node.js", "React"],
       startDate: new Date(),
     });
