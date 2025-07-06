@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 
 const UserSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true }, // 👈 login uchun
+  password: { type: String, required: true }, // 👈 bcrypt hash bo‘ladi
   name: { type: String, required: true },
   phone: { type: String, required: true },
   telegram: { type: String, required: true },

@@ -1,13 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 require("dotenv").config();
 
-// Middleware
+// 🔐 Middleware: Token tekshirish
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Token yuborilmadi" });
   }
   const token = authHeader.split(" ")[1];
@@ -15,23 +16,26 @@ function verifyToken(req, res, next) {
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
     req.user = decoded;
     next();
-  } catch (err) {
+  } catch {
     return res
       .status(403)
       .json({ message: "Token noto‘g‘ri yoki muddati tugagan" });
   }
 }
 
+// 🔐 Middleware: Admin yoki Founder bo'lishi kerak
 function isAdmin(req, res, next) {
-  if (req.user.role !== "super_admin" && req.user.role !== "founder") {
+  if (!["founder", "super_admin"].includes(req.user.role)) {
     return res.status(403).json({ message: "Ruxsat yo‘q" });
   }
   next();
 }
 
-// 🟢 1. Ro'yxatdan o'tish
+// ✅ Ro'yxatdan o'tish
 router.post("/register", async (req, res) => {
   const {
+    username,
+    password,
     name,
     category,
     desc,
@@ -44,7 +48,16 @@ router.post("/register", async (req, res) => {
   } = req.body;
 
   try {
+    const exists = await User.findOne({ username });
+    if (exists) {
+      return res.status(400).json({ message: "Bu username allaqachon mavjud" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const newUser = new User({
+      username,
+      password: hashedPassword,
       name,
       category,
       desc,
@@ -55,29 +68,31 @@ router.post("/register", async (req, res) => {
       img,
       jins,
       status: "kutilmoqda",
-      startDate: new Date(),
       role: "employee",
     });
 
     await newUser.save();
     res
       .status(201)
-      .json({ message: "So‘rov yuborildi! Admin tasdiqlashi kutilmoqda." });
+      .json({ message: "✅ So‘rov yuborildi! Admin tasdiqlashi kutilmoqda." });
   } catch (err) {
-    console.error("❌ Backendda xatolik:", err.message);
-    res.status(500).json({ message: "Xatolik yuz berdi", error: err });
+    res
+      .status(500)
+      .json({ message: "❌ Ro‘yxatdan o‘tishda xatolik", error: err.message });
   }
 });
 
-// 🟢 2. Login
+// ✅ Login
 router.post("/login", async (req, res) => {
-  const { telegram, phone } = req.body;
+  const { username, password } = req.body;
 
   try {
-    const user = await User.findOne({ telegram, phone });
+    const user = await User.findOne({ username });
+    if (!user) return res.status(401).json({ message: "Username noto‘g‘ri" });
 
-    if (!user)
-      return res.status(401).json({ message: "Login ma'lumotlari noto‘g‘ri" });
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ message: "Parol noto‘g‘ri" });
+
     if (user.status !== "tasdiqlangan")
       return res.status(403).json({ message: "Hali tasdiqlanmagan!" });
 
@@ -86,6 +101,7 @@ router.post("/login", async (req, res) => {
       process.env.ACCESS_SECRET,
       { expiresIn: "15m" }
     );
+
     const refreshToken = jwt.sign(
       { id: user._id, role: user.role },
       process.env.REFRESH_SECRET,
@@ -93,34 +109,44 @@ router.post("/login", async (req, res) => {
     );
 
     res.status(200).json({
-      message: "Muvaffaqiyatli login",
+      message: "✅ Muvaffaqiyatli login",
       accessToken,
       refreshToken,
       user: {
         _id: user._id,
         name: user.name,
-        telegram: user.telegram,
         role: user.role,
-        img: user.img || null,
+        telegram: user.telegram,
+        img: user.img,
         jins: user.jins,
       },
     });
   } catch (err) {
-    res.status(500).json({ message: "Server xatosi", error: err });
+    res.status(500).json({ message: "Server xatosi", error: err.message });
   }
 });
 
-// 🟢 3. Kutilayotganlar
+// ✅ Kutilayotgan foydalanuvchilar
 router.get("/pending", verifyToken, isAdmin, async (req, res) => {
   try {
     const users = await User.find({ status: "kutilmoqda" });
     res.status(200).json(users);
   } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err });
+    res.status(500).json({ message: "Xatolik", error: err.message });
   }
 });
 
-// 🟢 4. Tasdiqlash
+// ✅ Tasdiqlangan foydalanuvchilar
+router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const users = await User.find({ status: "tasdiqlangan" });
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err.message });
+  }
+});
+
+// ✅ Tasdiqlash
 router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
@@ -132,21 +158,11 @@ router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
       return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
     res.status(200).json({ message: "Tasdiqlandi", user });
   } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err });
+    res.status(500).json({ message: "Xatolik", error: err.message });
   }
 });
 
-// 🟢 5. Tasdiqlanganlar
-router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const users = await User.find({ status: "tasdiqlangan" });
-    res.status(200).json(users);
-  } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err });
-  }
-});
-
-// 🟢 6. Yangilash
+// ✅ Yangilash
 router.put("/update/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
@@ -156,29 +172,33 @@ router.put("/update/:id", verifyToken, isAdmin, async (req, res) => {
       return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
     res.status(200).json({ message: "Yangilandi", user: updated });
   } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err });
+    res.status(500).json({ message: "Xatolik", error: err.message });
   }
 });
 
-// 🟢 7. Bekor qilish
+// ✅ Bekor qilish (rad etish)
 router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const deleted = await User.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "So‘rov topilmadi" });
     res.status(200).json({ message: "So‘rov bekor qilindi" });
   } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err });
+    res.status(500).json({ message: "Xatolik", error: err.message });
   }
 });
 
-// 🟢 8. Founder yaratish (bir martalik)
+// ✅ Founder yaratish (bir martalik)
 router.post("/seedFounder", async (req, res) => {
   try {
-    const isExists = await User.findOne({ telegram: "@founder" });
+    const isExists = await User.findOne({ username: "founder" });
     if (isExists)
       return res.status(400).json({ message: "Founder allaqachon mavjud" });
 
+    const hashedPassword = await bcrypt.hash("123456", 10);
+
     const newUser = new User({
+      username: "founder",
+      password: hashedPassword,
       name: "Abdulaziz",
       telegram: "@founder",
       phone: "+998 77 014 50 47",
@@ -190,13 +210,12 @@ router.post("/seedFounder", async (req, res) => {
       img: "https://example.com/founder.jpg",
       jins: "Erkak",
       technology: ["Node.js", "React"],
-      startDate: new Date(),
     });
 
     await newUser.save();
     res.status(201).json({ message: "✅ Founder yaratildi!" });
   } catch (err) {
-    res.status(500).json({ message: "❌ Xatolik", error: err });
+    res.status(500).json({ message: "❌ Xatolik", error: err.message });
   }
 });
 
