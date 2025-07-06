@@ -220,13 +220,23 @@ router.post("/seedFounder", async (req, res) => {
 });
 
 // ✅ Founder'ni yangilash (faqat founder o‘zi yoki adminlar qilishi mumkin)
+// ✅ Founder'ni yangilash (shu jumladan parol ham)
 router.put("/update-founder", verifyToken, isAdmin, async (req, res) => {
   try {
+    const updateData = { ...req.body };
+
+    // Agar yangi parol kiritilgan bo‘lsa — uni hashlab qo‘yamiz
+    if (updateData.password) {
+      const hashedPassword = await bcrypt.hash(updateData.password, 10);
+      updateData.password = hashedPassword;
+    }
+
     const updated = await User.findOneAndUpdate(
       { username: "founder" },
-      req.body,
+      updateData,
       { new: true }
     );
+
     if (!updated) return res.status(404).json({ message: "Founder topilmadi" });
 
     res.status(200).json({ message: "Founder yangilandi", user: updated });
