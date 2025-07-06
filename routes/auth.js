@@ -218,6 +218,15 @@ router.post("/seedFounder", async (req, res) => {
     res.status(500).json({ message: "❌ Xatolik", error: err.message });
   }
 });
+// ✅ Barcha foydalanuvchilarni olish (Admin yoki Founder)
+router.get("/all", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const users = await User.find(); // hamma userlarni oladi
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err.message });
+  }
+});
 
 // ✅ Founder'ni yangilash (faqat founder o‘zi yoki adminlar qilishi mumkin)
 // ✅ Founder'ni yangilash (shu jumladan parol ham)
