@@ -194,7 +194,7 @@ router.post("/seedFounder", async (req, res) => {
     if (isExists)
       return res.status(400).json({ message: "Founder allaqachon mavjud" });
 
-    const hashedPassword = await bcrypt.hash("123456", 10);
+    const hashedPassword = await bcrypt.hash("20040826", 10); // ✅ Sen xohlagan parol
 
     const newUser = new User({
       username: "founder",
