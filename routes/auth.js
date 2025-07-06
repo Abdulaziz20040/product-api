@@ -135,6 +135,33 @@ router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+// 🔧 Faqat bir marta ishlatiladigan Founder yaratish route (test purpose)
+router.post("/seedFounder", async (req, res) => {
+  try {
+    const isExists = await User.findOne({ telegram: "@founder" });
+    if (isExists)
+      return res.status(400).json({ message: "Founder allaqachon mavjud" });
+
+    const newUser = new User({
+      name: "Asosiy Founder",
+      telegram: "@founder",
+      phone: "+998 91 000 00 00",
+      role: "founder",
+      status: "tasdiqlangan",
+      category: "Fullstack",
+      desc: "Asosiy tizim boshqaruvchisi",
+      github: "",
+      technology: ["Node.js", "React"],
+      startDate: new Date(),
+    });
+
+    await newUser.save();
+    res.status(201).json({ message: "✅ Founder yaratildi!" });
+  } catch (err) {
+    res.status(500).json({ message: "❌ Xatolik", error: err });
+  }
+});
+
 // ✅ 6. Bekor qilish (admin rad etadi)
 router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
   try {
