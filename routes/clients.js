@@ -3,29 +3,32 @@ const router = express.Router();
 const Client = require("../models/Client");
 const Project = require("../models/Project");
 
-// ✅ 1. GET barcha clientlar + ularning projectlari
+// ✅ 1. GET barcha clientlar + asosiy project ma'lumotlari
 router.get("/", async (req, res) => {
   try {
     const clients = await Client.find();
 
-    const clientsWithProjects = await Promise.all(
+    const clientsWithProjectInfo = await Promise.all(
       clients.map(async (client) => {
-        const projects = await Project.find({ clientId: client._id }).select(
-          "title category startDate endDate"
-        );
+        const project = await Project.findOne({ clientId: client._id })
+          .sort({ startDate: 1 }) // startDate bo‘yicha birinchi project
+          .select("title category startDate");
 
         return {
           id: client._id,
           name: client.name,
           telegram: client.telegram,
           phone: client.phone,
-          company: client.company,
-          projects,
+          project: project?.title || null,
+          category: project?.category || null,
+          date: project?.startDate
+            ? project.startDate.toISOString().split("T")[0]
+            : null,
         };
       })
     );
 
-    res.json(clientsWithProjects);
+    res.json(clientsWithProjectInfo);
   } catch (err) {
     res.status(500).json({ message: "Server xatosi", error: err });
   }
@@ -76,13 +79,13 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
-// ✅ 5. Clientni o‘chirish
+// ✅ 5. Clientni o‘chirish + bog‘langan projectlarni o‘chirish
 router.delete("/:id", async (req, res) => {
   try {
     const deleted = await Client.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Topilmadi" });
 
-    // ❗ Bog‘langan projectlarni ham o‘chirish (ixtiyoriy)
+    // Bog‘langan projectlarni o‘chirish
     await Project.deleteMany({ clientId: req.params.id });
 
     res.json({ message: "Client va bog‘langan projectlar o‘chirildi" });
