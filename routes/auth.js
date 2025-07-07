@@ -146,17 +146,29 @@ router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ✅ Tasdiqlash
+// ✅ Tasdiqlash// ✅ Tasdiqlash - parolni ochiq holatda qaytaradi
 router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { status: "tasdiqlangan" },
-      { new: true }
-    );
+    const user = await User.findById(req.params.id);
     if (!user)
       return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
-    res.status(200).json({ message: "Tasdiqlandi", user });
+
+    const originalPassword = req.body.password || "12345678"; // 🔐 Parol yo‘q bo‘lsa default
+
+    const hashedPassword = await bcrypt.hash(originalPassword, 10);
+
+    user.status = "tasdiqlangan";
+    user.password = hashedPassword;
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Tasdiqlandi",
+      user: {
+        username: user.username,
+        password: originalPassword, // 🔓 frontendga ochiq parol
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: "Xatolik", error: err.message });
   }
