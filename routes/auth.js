@@ -32,6 +32,7 @@ function isAdmin(req, res, next) {
 }
 
 // ✅ Ro'yxatdan o'tish
+// ✅ Ro'yxatdan o'tish (ochiq parol saqlanadi — test uchun)
 router.post("/register", async (req, res) => {
   const {
     username,
@@ -53,11 +54,9 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Bu username allaqachon mavjud" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const newUser = new User({
       username,
-      password: hashedPassword,
+      password, // 🔓 parolni hashlamayapmiz
       name,
       category,
       desc,
@@ -83,6 +82,7 @@ router.post("/register", async (req, res) => {
 });
 
 // ✅ Login
+// ✅ Login (hash ishlatmaydi — ochiq parol)
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -90,8 +90,8 @@ router.post("/login", async (req, res) => {
     const user = await User.findOne({ username });
     if (!user) return res.status(401).json({ message: "Username noto‘g‘ri" });
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "Parol noto‘g‘ri" });
+    if (user.password !== password)
+      return res.status(401).json({ message: "Parol noto‘g‘ri" });
 
     if (user.status !== "tasdiqlangan")
       return res.status(403).json({ message: "Hali tasdiqlanmagan!" });
@@ -99,7 +99,7 @@ router.post("/login", async (req, res) => {
     const accessToken = jwt.sign(
       { id: user._id, role: user.role },
       process.env.ACCESS_SECRET,
-      { expiresIn: "1d" } // ⬅️ 1 kunlik access token
+      { expiresIn: "1d" }
     );
 
     const refreshToken = jwt.sign(
@@ -147,18 +147,14 @@ router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
 });
 
 // ✅ Tasdiqlash// ✅ Tasdiqlash - parolni ochiq holatda qaytaradi
+// ✅ Tasdiqlash — parolni hashlamaydi
 router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user)
       return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
 
-    const originalPassword = req.body.password || "12345678"; // 🔐 Parol yo‘q bo‘lsa default
-
-    const hashedPassword = await bcrypt.hash(originalPassword, 10);
-
     user.status = "tasdiqlangan";
-    user.password = hashedPassword;
 
     await user.save();
 
@@ -166,7 +162,7 @@ router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
       message: "Tasdiqlandi",
       user: {
         username: user.username,
-        password: originalPassword, // 🔓 frontendga ochiq parol
+        password: user.password, // 🔓 parol ochiq holda qaytariladi
       },
     });
   } catch (err) {
