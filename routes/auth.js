@@ -184,6 +184,16 @@ router.put("/update/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+// ✅ Barcha foydalanuvchilarni o‘chirish (faqat founder yoki admin)
+router.delete("/delete-all", verifyToken, isAdmin, async (req, res) => {
+  try {
+    await User.deleteMany({}); // barcha foydalanuvchilarni o‘chiradi
+    res.status(200).json({ message: "✅ Barcha foydalanuvchilar o‘chirildi" });
+  } catch (err) {
+    res.status(500).json({ message: "❌ Xatolik", error: err.message });
+  }
+});
+
 // ✅ Bekor qilish (rad etish)
 router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
   try {
