@@ -212,11 +212,9 @@ router.post("/seedFounder", async (req, res) => {
     if (isExists)
       return res.status(400).json({ message: "Founder allaqachon mavjud" });
 
-    const hashedPassword = await bcrypt.hash("20040826", 10); // ✅ Sen xohlagan parol
-
     const newUser = new User({
       username: "founder",
-      password: hashedPassword,
+      password: "20040826",
       name: "Abdulaziz",
       telegram: "@founder",
       phone: "+998 77 014 50 47",
