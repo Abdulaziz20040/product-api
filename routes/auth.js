@@ -1,11 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 require("dotenv").config();
 
-// 🔐 Middleware: Token tekshirish
+// 🔐 Token tekshirish
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
@@ -23,7 +22,7 @@ function verifyToken(req, res, next) {
   }
 }
 
-// 🔐 Middleware: Admin yoki Founder bo'lishi kerak
+// 🔐 Admin yoki Founder
 function isAdmin(req, res, next) {
   if (!["founder", "super_admin"].includes(req.user.role)) {
     return res.status(403).json({ message: "Ruxsat yo‘q" });
@@ -31,8 +30,7 @@ function isAdmin(req, res, next) {
   next();
 }
 
-// ✅ Ro'yxatdan o'tish
-// ✅ Ro'yxatdan o'tish (ochiq parol saqlanadi — test uchun)
+// ✅ Ro‘yxatdan o‘tish
 router.post("/register", async (req, res) => {
   const {
     username,
@@ -56,7 +54,7 @@ router.post("/register", async (req, res) => {
 
     const newUser = new User({
       username,
-      password, // 🔓 parolni hashlamayapmiz
+      password, // 🔓 Parol hashlanmagan
       name,
       category,
       desc,
@@ -75,14 +73,11 @@ router.post("/register", async (req, res) => {
       .status(201)
       .json({ message: "✅ So‘rov yuborildi! Admin tasdiqlashi kutilmoqda." });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "❌ Ro‘yxatdan o‘tishda xatolik", error: err.message });
+    res.status(500).json({ message: "❌ Xatolik", error: err.message });
   }
 });
 
 // ✅ Login
-// ✅ Login (hash ishlatmaydi — ochiq parol)
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -126,6 +121,49 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// ✅ Tasdiqlash
+router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user)
+      return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
+
+    user.status = "tasdiqlangan";
+    await user.save();
+
+    res.status(200).json({
+      message: "Tasdiqlandi",
+      user: {
+        username: user.username,
+        password: user.password, // 🔓 Parolni qaytaramiz
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err.message });
+  }
+});
+
+// ✅ Rad etish (bekor qilish)
+router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const deleted = await User.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "So‘rov topilmadi" });
+    res.status(200).json({ message: "So‘rov bekor qilindi" });
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err.message });
+  }
+});
+
+// ✅ Barcha foydalanuvchilar
+router.get("/all", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Xatolik", error: err.message });
+  }
+});
+
 // ✅ Kutilayotgan foydalanuvchilar
 router.get("/pending", verifyToken, isAdmin, async (req, res) => {
   try {
@@ -146,62 +184,13 @@ router.get("/confirmed", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ✅ Tasdiqlash// ✅ Tasdiqlash - parolni ochiq holatda qaytaradi
-// ✅ Tasdiqlash — parolni hashlamaydi
-router.put("/confirm/:id", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user)
-      return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
-
-    user.status = "tasdiqlangan";
-
-    await user.save();
-
-    res.status(200).json({
-      message: "Tasdiqlandi",
-      user: {
-        username: user.username,
-        password: user.password, // 🔓 parol ochiq holda qaytariladi
-      },
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err.message });
-  }
-});
-
-// ✅ Yangilash
-router.put("/update/:id", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    if (!updated)
-      return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
-    res.status(200).json({ message: "Yangilandi", user: updated });
-  } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err.message });
-  }
-});
-
-// ✅ Barcha foydalanuvchilarni o‘chirish (faqat founder yoki admin)
+// ✅ Barcha userlarni o‘chirish
 router.delete("/delete-all", verifyToken, isAdmin, async (req, res) => {
   try {
-    await User.deleteMany({}); // barcha foydalanuvchilarni o‘chiradi
+    await User.deleteMany({});
     res.status(200).json({ message: "✅ Barcha foydalanuvchilar o‘chirildi" });
   } catch (err) {
     res.status(500).json({ message: "❌ Xatolik", error: err.message });
-  }
-});
-
-// ✅ Bekor qilish (rad etish)
-router.delete("/reject/:id", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const deleted = await User.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "So‘rov topilmadi" });
-    res.status(200).json({ message: "So‘rov bekor qilindi" });
-  } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err.message });
   }
 });
 
@@ -214,7 +203,7 @@ router.post("/seedFounder", async (req, res) => {
 
     const newUser = new User({
       username: "founder",
-      password: "20040826",
+      password: "20040826", // 🔓 oddiy parol
       name: "Abdulaziz",
       telegram: "@founder",
       phone: "+998 77 014 50 47",
@@ -234,31 +223,13 @@ router.post("/seedFounder", async (req, res) => {
     res.status(500).json({ message: "❌ Xatolik", error: err.message });
   }
 });
-// ✅ Barcha foydalanuvchilarni olish (Admin yoki Founder)
-router.get("/all", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const users = await User.find(); // hamma userlarni oladi
-    res.status(200).json(users);
-  } catch (err) {
-    res.status(500).json({ message: "Xatolik", error: err.message });
-  }
-});
 
-// ✅ Founder'ni yangilash (faqat founder o‘zi yoki adminlar qilishi mumkin)
-// ✅ Founder'ni yangilash (shu jumladan parol ham)
+// ✅ Founder'ni yangilash (hash YO‘Q)
 router.put("/update-founder", verifyToken, isAdmin, async (req, res) => {
   try {
-    const updateData = { ...req.body };
-
-    // Agar yangi parol kiritilgan bo‘lsa — uni hashlab qo‘yamiz
-    if (updateData.password) {
-      const hashedPassword = await bcrypt.hash(updateData.password, 10);
-      updateData.password = hashedPassword;
-    }
-
     const updated = await User.findOneAndUpdate(
       { username: "founder" },
-      updateData,
+      req.body,
       { new: true }
     );
 

@@ -5,6 +5,8 @@ require("dotenv").config(); // ✅ env'ni faollashtirish
 
 // ROUTELAR
 const authRoutes = require("./routes/auth");
+const userRoutes = require("./routes/userRoutes");
+
 const projectRoutes = require("./routes/projects");
 const clientRoutes = require("./routes/clients");
 const orderRoutes = require("./routes/orders");
@@ -23,6 +25,7 @@ app.use(cors());
 app.use(express.json());
 
 // ROUTELARNI ULASH
+app.use("/users", userRoutes);
 app.use("/auth", authRoutes);
 app.use("/projects", projectRoutes);
 app.use("/clients", clientRoutes);
